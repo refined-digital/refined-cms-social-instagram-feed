@@ -3,10 +3,8 @@
 namespace RefinedDigital\Social\InstagramFeed\Module\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use RefinedDigital\Team\Commands\Install;
-use RefinedDigital\CMS\Modules\Core\Models\PackageAggregate;
-use RefinedDigital\CMS\Modules\Core\Models\ModuleAggregate;
-use RefinedDigital\CMS\Modules\Core\Models\RouteAggregate;
+use RefinedDigital\CMS\Modules\Core\Models\PublicRouteAggregate;
+use RefinedDigital\Social\InstagramFeed\Commands\Install;
 
 class SocialInstagramFeedServiceProvider extends ServiceProvider
 {
@@ -17,6 +15,13 @@ class SocialInstagramFeedServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                Install::class
+            ]);
+        }
+
         $this->publishes([
             __DIR__.'/../../../config/instagram-feed.php' => config_path('instagram-feed.php'),
         ], 'instagram-feed');
@@ -29,5 +34,7 @@ class SocialInstagramFeedServiceProvider extends ServiceProvider
      */
     public function register()
     {
+        app(PublicRouteAggregate::class)
+            ->addRouteFile('socialInstagramFeed', __DIR__.'/../Http/public-routes.php');
     }
 }
