@@ -7,7 +7,7 @@ if (token) {
     window.axios.defaults.headers.common['X-CSRF-TOKEN'] = token.content;
 }
 
-window.instagramFeed = (options) => {
+window.instagramFeed = async (options) => {
   const defaultOptions = {
     el: '.instagram-feed',
     limit: 12,
@@ -21,7 +21,7 @@ window.instagramFeed = (options) => {
 
   const element = document.querySelector(options.el);
 
-  window.axios
+  return window.axios
     .post('/instagram-feed', {
       limit: options.limit
     })
