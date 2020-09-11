@@ -3,7 +3,7 @@
 namespace RefinedDigital\Social\InstagramFeed\Module\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use RefinedDigital\CMS\Modules\Core\Models\PublicRouteAggregate;
+use RefinedDigital\CMS\Modules\Core\Aggregates\PublicRouteAggregate;
 use RefinedDigital\Social\InstagramFeed\Commands\Install;
 
 class SocialInstagramFeedServiceProvider extends ServiceProvider
