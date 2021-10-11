@@ -35,12 +35,15 @@ window.instagramFeed = async (options) => {
       let html;
       if (results.data.success) {
         if (results.data.data) {
+          const htmlItems = [];
           results.data.data.forEach(item => {
-            html = options.template;
-            html = html.replace('[link]', item.permalink);
-            html = html.replace('[image]', item.media_url);
-            html = html.replace('[caption]', item.caption || '');
+            let htmlItem = options.template;
+            htmlItem = htmlItem.replace('[link]', item.permalink);
+            htmlItem = htmlItem.replace('[image]', item.media_url);
+            htmlItem = htmlItem.replace('[caption]', item.caption || '');
+            htmlItems.push(htmlItem);
           });
+          html = htmlItems.join('');
         } else if (results.data.message) {
           html = results.data.message;
         }
