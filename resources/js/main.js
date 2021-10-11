@@ -20,19 +20,38 @@ window.instagramFeed = async (options) => {
   options = Object.assign(defaultOptions, options);
 
   const element = document.querySelector(options.el);
+  const data = {
+    limit: options.limit
+  }
+  const urlSearchParams = new URLSearchParams(window.location.search);
+  const params = Object.fromEntries(urlSearchParams.entries());
+  if (params.code) {
+    data.code = params.code;
+  }
 
   return window.axios
-    .post('/instagram-feed', {
-      limit: options.limit
-    })
+    .post('/instagram-feed', data)
     .then(results => {
-      results.data.forEach(item => {
-        let html = options.template;
-        html = html.replace('[link]', item.permalink);
-        html = html.replace('[image]', item.media_url);
-        html = html.replace('[caption]', item.caption || '');
+      let html;
+      if (results.data.success) {
+        if (results.data.data) {
+          results.data.data.forEach(item => {
+            html = options.template;
+            html = html.replace('[link]', item.permalink);
+            html = html.replace('[image]', item.media_url);
+            html = html.replace('[caption]', item.caption || '');
+          });
+        } else if (results.data.message) {
+          html = results.data.message;
+        }
+      } else {
+        if (results.data.link) {
+          html = results.data.link;
+        } else {
+          html = results.data.message;
+        }
+      }
 
-        element.insertAdjacentHTML('beforeend', html);
-      });
+      element.insertAdjacentHTML('beforeend', html);
     })
 }

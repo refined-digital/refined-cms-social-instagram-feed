@@ -16,9 +16,22 @@ class SocialInstagramFeedController {
 
     public function getForFront(Request $request)
     {
-        $limit = $request->get('limit') ?: 20;
-        $feed = $this->repository->getUserMedia($limit);
+        if ($request->has('code')) {
+            $data = new \stdClass();
+            $data->success = true;
+            $data->message = '<p>Please reload the page to reload the env file changes</p>';
 
-        return response()->json($feed);
+            try {
+                $this->repository->exchangeCodeForToken($request->get('code'));
+            } catch (\Exception $exception) {
+                $data->message = $exception->getMessage();
+                $data->success = false;
+            }
+        } else {
+            $limit = $request->get('limit') ?: 20;
+            $data = $this->repository->getUserMedia($limit);
+        }
+
+        return response()->json($data);
     }
 }
