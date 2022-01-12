@@ -38,9 +38,9 @@ window.instagramFeed = async (options) => {
           const htmlItems = [];
           results.data.data.forEach(item => {
             let htmlItem = options.template;
-            htmlItem = htmlItem.replace('[link]', item.permalink);
-            htmlItem = htmlItem.replace('[image]', item.media_url);
-            htmlItem = htmlItem.replace('[caption]', item.caption || '');
+            htmlItem = htmlItem.replaceAll('[link]', item.permalink);
+            htmlItem = htmlItem.replaceAll('[image]', item.media_url);
+            htmlItem = htmlItem.replaceAll('[caption]', item.caption || '');
             htmlItems.push(htmlItem);
           });
           html = htmlItems.join('');
