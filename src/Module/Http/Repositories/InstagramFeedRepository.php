@@ -10,7 +10,7 @@ class InstagramFeedRepository
     protected $apiBasePath = 'https://graph.instagram.com/';
     protected $authBasePath = 'https://api.instagram.com/oauth/';
     protected $client;
-    protected $mediaFields = 'id,caption,media_url,permalink';
+    protected $mediaFields = 'id,caption,media_url,permalink,timestamp';
     protected $authScopes = 'user_profile,user_media';
     protected $tokenFile = 'instagram-token.json';
     protected $clientId;
