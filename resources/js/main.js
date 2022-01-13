@@ -1,5 +1,10 @@
 window.axios = require('axios');
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const advancedFormat = require('dayjs/plugin/advancedFormat');
+dayjs.extend(utc);
+dayjs.extend(advancedFormat);
 
 let token = document.head.querySelector('meta[name="csrf-token"]');
 
@@ -17,6 +22,8 @@ window.instagramFeed = async (options) => {
     `
   }
 
+  const defaultDateFormat = 'DD/MM/YYYY HH:mm:ss';
+
   options = Object.assign(defaultOptions, options);
 
   const element = document.querySelector(options.el);
@@ -29,7 +36,36 @@ window.instagramFeed = async (options) => {
     data.code = params.code;
   }
 
-  return window.axios
+  const configureDate = function(html, timestamp) {
+    const date = dayjs.utc(timestamp);
+
+    const dateMatches = html.matchAll(/\[(date.*?)\]/g);
+
+    const search = [];
+    const replace = [];
+
+    Array.from(dateMatches).forEach(match => {
+      const dateBits = match[1].split('|');
+      const localDate = (dateBits.length > 1)
+        ? date.format(dateBits[1])
+        : date.format(defaultDateFormat);
+
+      search.push(match[0]);
+      replace.push(localDate);
+    })
+
+    if (search.length) {
+      search.forEach((item, index) => {
+        html = html.replaceAll(item, replace[index]);
+      })
+    }
+
+    return html;
+  }
+
+  return new Promise(function (resolve) {
+
+  window.axios
     .post('/instagram-feed', data)
     .then(results => {
       let html;
@@ -38,6 +74,9 @@ window.instagramFeed = async (options) => {
           const htmlItems = [];
           results.data.data.forEach(item => {
             let htmlItem = options.template;
+            if (htmlItem.includes('[date')) {
+              htmlItem = configureDate(htmlItem, item.timestamp);
+            }
             htmlItem = htmlItem.replaceAll('[link]', item.permalink);
             htmlItem = htmlItem.replaceAll('[image]', item.media_url);
             htmlItem = htmlItem.replaceAll('[caption]', item.caption || '');
@@ -56,5 +95,9 @@ window.instagramFeed = async (options) => {
       }
 
       element.insertAdjacentHTML('beforeend', html);
+
+      resolve()
     })
+  })
+
 }
