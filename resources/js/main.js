@@ -77,8 +77,9 @@ window.instagramFeed = async (options) => {
             if (htmlItem.includes('[date')) {
               htmlItem = configureDate(htmlItem, item.timestamp);
             }
+            const imageUrl = item.thumbnail_url || item.media_url;
             htmlItem = htmlItem.replaceAll('[link]', item.permalink);
-            htmlItem = htmlItem.replaceAll('[image]', item.media_url);
+            htmlItem = htmlItem.replaceAll('[image]', imageUrl);
             htmlItem = htmlItem.replaceAll('[caption]', item.caption || '');
             htmlItems.push(htmlItem);
           });
