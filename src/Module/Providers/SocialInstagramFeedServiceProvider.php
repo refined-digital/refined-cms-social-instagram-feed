@@ -36,5 +36,7 @@ class SocialInstagramFeedServiceProvider extends ServiceProvider
     {
         app(PublicRouteAggregate::class)
             ->addRouteFile('socialInstagramFeed', __DIR__.'/../Http/public-routes.php');
+
+        $this->mergeConfigFrom(__DIR__.'/../../../config/instagram-feed.php', 'instagram-feed');
     }
 }

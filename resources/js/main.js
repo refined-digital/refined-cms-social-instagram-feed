@@ -27,6 +27,10 @@ window.instagramFeed = async (options) => {
   options = Object.assign(defaultOptions, options);
 
   const element = document.querySelector(options.el);
+  if (!element) {
+    throw new Error(`Can not find element ${options.el}`)
+  }
+
   const data = {
     limit: options.limit
   }
