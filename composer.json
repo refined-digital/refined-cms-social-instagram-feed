@@ -3,7 +3,7 @@
   "description": "Instagram Feed for RefinedCMS",
   "require": {
     "refineddigital/cms": "^1.12|dev-master",
-    "guzzlehttp/guzzle": "^6.3"
+    "guzzlehttp/guzzle": "^7.1"
   },
   "license": "MIT",
   "authors": [
