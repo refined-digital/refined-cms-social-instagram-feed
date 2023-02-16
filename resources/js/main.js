@@ -73,6 +73,7 @@ window.instagramFeed = async (options) => {
     .post('/instagram-feed', data)
     .then(results => {
       let html;
+      console.log(results.data);
       if (results.data.success) {
         if (results.data.data) {
           const htmlItems = [];
@@ -92,7 +93,9 @@ window.instagramFeed = async (options) => {
           html = results.data.message;
         }
       } else {
-        if (results.data.link) {
+        if (typeof results.data === 'string') {
+          html = '';
+        } else if (results.data.link) {
           html = results.data.link;
         } else {
           html = results.data.message;

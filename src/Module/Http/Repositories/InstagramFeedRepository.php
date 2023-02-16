@@ -70,7 +70,7 @@ class InstagramFeedRepository
             return true;
 
         } catch(\Exception $error) {
-            print_r($error->getMessage());
+            // print_r($error->getMessage());
         }
 
         return false;
@@ -99,7 +99,7 @@ class InstagramFeedRepository
         } catch(\Exception $error) {
             if($error->getCode() == 400) {
                 $obj->success = false;
-                if (strpos(config('app.url'), ':8000')) {
+                if (strpos(config('app.url'), ':8000') || auth()->check()) {
                     $obj->link    = $this->getAuthorizeLink();
                 } else {
                     $obj->message = 'Token has expired';
