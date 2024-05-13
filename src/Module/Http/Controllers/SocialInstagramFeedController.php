@@ -31,7 +31,7 @@ class SocialInstagramFeedController
         $settings = [
             'client_id' => $this->settings->client_id->value ?? null,
             'client_secret' => $this->settings->client_secret->value ?? null,
-            'redirect_url' => $this->settings->redirect_url->value ?? null,
+            'redirect_url' => $this->settings->redirect_url->value ?? request()->url(),
         ];
 
         return view('instagram::index')->with('repo', $this->repository)->with(compact('settings'));
