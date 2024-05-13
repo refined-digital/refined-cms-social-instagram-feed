@@ -22,9 +22,9 @@ class InstagramFeedRepository
     {
         $settings = settings()->get('instagram');
 
-        $this->client_id = $settings->client_id->value ?? null;
-        $this->client_secret = $settings->client_secret->value ?? null;
-        $this->redirect_uri = $settings->redirect_url->value ?? request()->url();
+        $this->clientId = $settings->client_id->value ?? null;
+        $this->clientSecret = $settings->client_secret->value ?? null;
+        $this->redirectUri = $settings->redirect_url->value ?? request()->url();
         $this->token        = '';
 
         $this->client = new Client([
