@@ -40,22 +40,7 @@ class Install extends Command
     public function handle()
     {
         $this->createSymLink();
-        $this->addToEnv();
         $this->info('Social Instagram Feed has been successfully installed');
-    }
-
-    protected function addToEnv()
-    {
-        $content = 'INSTAGRAM_CLIENT_ID='.PHP_EOL;
-        $content .= 'INSTAGRAM_CLIENT_SECRET='.PHP_EOL;
-        $content .= 'INSTAGRAM_ACCESS_TOKEN='.PHP_EOL;
-        $content .= 'INSTAGRAM_REDIRECT_URI='.PHP_EOL;
-
-        $file = base_path('.env');
-        $envContents = file_get_contents($file);
-        $envContents .= PHP_EOL.PHP_EOL.$content;
-
-        file_put_contents($file, $envContents);
     }
 
     protected function createSymLink()

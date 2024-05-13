@@ -20,15 +20,23 @@ class InstagramFeedRepository
 
     public function __construct()
     {
+        $settings = settings()->get('instagram');
+
+        $this->client_id = $settings->client_id->value ?? null;
+        $this->client_secret = $settings->client_secret->value ?? null;
+        $this->redirect_uri = $settings->redirect_url->value ?? request()->url();
+        $this->token        = '';
+
         $this->client = new Client([
             'base_uri' => $this->apiBasePath
         ]);
 
-        $this->clientId     = config('instagram-feed.clientId');
-        $this->clientSecret = config('instagram-feed.clientSecret');
-        $this->token        = config('instagram-feed.accessToken');
-        $this->redirectUri  = config('instagram-feed.redirectUri');
-
+        if (\Storage::disk('local')->exists($this->tokenFile)) {
+            $tokenOnFile = json_decode(\Storage::disk('local')->get($this->tokenFile));
+            if (isset($tokenOnFile->access_token)) {
+                $this->token = $tokenOnFile->access_token;
+            }
+        }
 
         // check if we need to refresh the token
         if ($this->token) {
@@ -40,7 +48,6 @@ class InstagramFeedRepository
     {
         $tokenOnFile = json_decode(\Storage::disk('local')->get($this->tokenFile));
         $refresh = false;
-
 
         if (isset($tokenOnFile->expires)) {
             $now = \Carbon\Carbon::now();
@@ -99,11 +106,6 @@ class InstagramFeedRepository
         } catch(\Exception $error) {
             if($error->getCode() == 400) {
                 $obj->success = false;
-                if (strpos(config('app.url'), ':8000') || auth()->check()) {
-                    $obj->link    = $this->getAuthorizeLink();
-                } else {
-                    $obj->message = 'Token has expired';
-                }
             }
         }
 
@@ -147,13 +149,25 @@ class InstagramFeedRepository
             'base_uri' => $this->authBasePath
         ]);
 
-        $response = $client->request('POST', 'access_token', $data);
+        try {
+            $response = $client->request('POST', 'access_token', $data);
 
-        $token = json_decode($response->getBody()->getContents());
+            $token = json_decode($response->getBody()->getContents());
 
-        if (isset($token->access_token)) {
-            $this->exchangeShortTokenForLongLivedToken($token->access_token);
+            if (isset($token->access_token)) {
+                $this->exchangeShortTokenForLongLivedToken($token->access_token);
+            }
+            session()->flash('status', 'Successfully connected');
+            return redirect()->route('refined.instagram.index')->with('status', 'Successfully connected');
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            $response = $e->getResponse();
+            $errors = json_decode($response->getBody()->getContents());
+            return redirect()
+                ->route('refined.instagram.index')
+                ->with('status', 'Failed to connect to Instagram. '.($errors->error_message ?? 'Please try again').'.')
+                ->with('fail', 1);
         }
+
 
     }
 
@@ -173,7 +187,7 @@ class InstagramFeedRepository
         $this->storeToken($body);
     }
 
-    private function getAuthorizeLink()
+    public function getAuthorizeLink()
     {
         $params = [
             'client_id='.$this->clientId,
@@ -181,9 +195,10 @@ class InstagramFeedRepository
             'scope='.$this->authScopes,
             'response_type=code'
         ];
-        $link   = $this->authBasePath.'authorize?'.implode('&', $params);
 
-        return '<a href="'.$link.'" class="button">Click here to authorize</a>';
+        $link = $this->authBasePath.'authorize?'.implode('&', $params);
+
+        return $link;
     }
 
     private function storeToken($body) {
@@ -194,21 +209,12 @@ class InstagramFeedRepository
         \Storage::disk('local')->put($this->tokenFile, json_encode($storeToken));
 
         if (isset($token->access_token)) {
-            $this->writeTokenToEnv($token->access_token);
             $this->token = $token->access_token;
         }
     }
 
-    private function writeTokenToEnv($newToken)
+    public function getTokenFile()
     {
-        $file = base_path('.env');
-        $envContents = file_get_contents($file);
-
-        $search = [$this->token];
-        $replace = [$newToken];
-
-        $envContents = str_replace($search, $replace, $envContents);
-
-        file_put_contents($file, $envContents);
+        return storage_path('app/'.$this->tokenFile);
     }
 }
