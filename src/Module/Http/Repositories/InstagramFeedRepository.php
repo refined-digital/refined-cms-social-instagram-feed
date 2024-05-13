@@ -166,6 +166,11 @@ class InstagramFeedRepository
                 ->route('refined.instagram.index')
                 ->with('status', 'Failed to connect to Instagram. '.($errors->error_message ?? 'Please try again').'.')
                 ->with('fail', 1);
+        } catch (\Exception $e) {
+            return redirect()
+                ->route('refined.instagram.index')
+                ->with('status', 'Failed to connect to Instagram. '.($e->getMessage() ?? 'Please try again').'.')
+                ->with('fail', 1);
         }
 
 
