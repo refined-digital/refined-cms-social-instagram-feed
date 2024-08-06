@@ -22,7 +22,7 @@ class SocialInstagramFeedController
     public function index()
     {
         if (request()->has('code')) {
-            $code = request()->get('code');
+            $code = str_replace('#_', '', request()->get('code'));
 
             return $this->repository->exchangeCodeForToken($code);
         }

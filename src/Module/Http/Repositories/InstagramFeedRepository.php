@@ -164,16 +164,14 @@ class InstagramFeedRepository
             $errors = json_decode($response->getBody()->getContents());
             return redirect()
                 ->route('refined.instagram.index')
-                ->with('status', 'Failed to connect to Instagram. '.($errors->error_message ?? 'Please try again').'.')
+                ->with('status', 'Failed to connect to Instagram. '.($errors->error_message ?? 'Please try again').'. Did you add the user as a test user?')
                 ->with('fail', 1);
         } catch (\Exception $e) {
             return redirect()
                 ->route('refined.instagram.index')
-                ->with('status', 'Failed to connect to Instagram. '.($e->getMessage() ?? 'Please try again').'.')
+                ->with('status', 'Failed to connect to Instagram. '.($e->getMessage() ?? 'Please try again').'. Did you add the user as a test user?')
                 ->with('fail', 1);
         }
-
-
     }
 
     private function exchangeShortTokenForLongLivedToken($shortToken)

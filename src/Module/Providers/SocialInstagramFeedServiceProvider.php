@@ -27,10 +27,6 @@ class SocialInstagramFeedServiceProvider extends ServiceProvider
                 Install::class
             ]);
         }
-
-        $this->publishes([
-            __DIR__.'/../../../config/instagram-feed.php' => config_path('instagram-feed.php'),
-        ], 'instagram-feed');
     }
 
     /**
