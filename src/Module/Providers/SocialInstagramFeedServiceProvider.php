@@ -55,7 +55,5 @@ class SocialInstagramFeedServiceProvider extends ServiceProvider
 
         app(ModuleAggregate::class)
             ->addMenuItem($menuConfig);
-
-        $this->mergeConfigFrom(__DIR__.'/../../../config/instagram-feed.php', 'instagram-feed');
     }
 }
