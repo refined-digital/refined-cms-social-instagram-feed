@@ -25,7 +25,7 @@ class InstagramFeedRepository
         $this->clientId = $settings->client_id->value ?? null;
         $this->clientSecret = $settings->client_secret->value ?? null;
         $this->redirectUri = $settings->redirect_url->value ?? request()->url();
-        $this->token        = '';
+        $this->token        = env('INSTAGRAM_ACCESS_TOKEN');
 
         $this->client = new Client([
             'base_uri' => $this->apiBasePath
@@ -46,6 +46,8 @@ class InstagramFeedRepository
 
     public function refreshToken()
     {
+        return env('INSTAGRAM_ACCESS_TOKEN');
+
         $tokenOnFile = json_decode(\Storage::disk('local')->get($this->tokenFile));
         $refresh = false;
 
@@ -95,7 +97,7 @@ class InstagramFeedRepository
         $obj->success = true;
         $obj->data    = collect([]);
 
-        try {
+        //try {
             $response = $this->client->request('GET', 'me/media', [
                 'query' => implode('&', $params)
             ]);
@@ -103,11 +105,11 @@ class InstagramFeedRepository
             $body      = json_decode($response->getBody()->getContents());
             $obj->data = collect($body->data);
 
-        } catch(\Exception $error) {
+        /*} catch(\Exception $error) {
             if($error->getCode() == 400) {
                 $obj->success = false;
             }
-        }
+        }*/
 
         return $obj;
     }
