@@ -44,7 +44,7 @@
                                             <div class="form__row form__row--required"><label for="form--client-secret" class="form__label">Client Secret</label>
                                                 {!!
                                                     html()
-                                                        ->input('text', 'client_secret')
+                                                        ->input('password', 'client_secret')
                                                         ->class('form__control')
                                                         ->id('form--client-secret')
                                                         ->value($settings['client_secret'] ?? old('client_secret'))

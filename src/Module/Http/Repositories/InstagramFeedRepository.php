@@ -6,12 +6,12 @@ use GuzzleHttp\Client;
 
 class InstagramFeedRepository
 {
-
     protected $apiBasePath = 'https://graph.instagram.com/';
-    protected $authBasePath = 'https://api.instagram.com/oauth/';
+    protected $authBasePath = 'https://instagram.com/oauth/';
+    protected $exchangeBasePath = 'https://api.instagram.com/oauth/';
     protected $client;
     protected $mediaFields = 'id,caption,media_url,permalink,timestamp,thumbnail_url';
-    protected $authScopes = 'user_profile,user_media';
+    protected $authScopes = 'instagram_business_basic'; //,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish';
     protected $tokenFile = 'instagram-token.json';
     protected $clientId;
     protected $clientSecret;
@@ -22,10 +22,10 @@ class InstagramFeedRepository
     {
         $settings = settings()->get('instagram');
 
-        $this->clientId = $settings->client_id->value ?? null;
+        $this->clientId     = $settings->client_id->value ?? null;
         $this->clientSecret = $settings->client_secret->value ?? null;
-        $this->redirectUri = $settings->redirect_url->value ?? request()->url();
-        $this->token        = env('INSTAGRAM_ACCESS_TOKEN');
+        $this->redirectUri  = $settings->redirect_url->value ?? request()->url();
+        $this->token        = null;
 
         $this->client = new Client([
             'base_uri' => $this->apiBasePath
@@ -46,8 +46,6 @@ class InstagramFeedRepository
 
     public function refreshToken()
     {
-        return env('INSTAGRAM_ACCESS_TOKEN');
-
         $tokenOnFile = json_decode(\Storage::disk('local')->get($this->tokenFile));
         $refresh = false;
 
@@ -148,19 +146,22 @@ class InstagramFeedRepository
         ];
 
         $client = new Client([
-            'base_uri' => $this->authBasePath
+            'base_uri' => $this->exchangeBasePath
         ]);
 
-        try {
+        // try {
             $response = $client->request('POST', 'access_token', $data);
 
             $token = json_decode($response->getBody()->getContents());
+
+            \Log::info(print_r($token, true));
 
             if (isset($token->access_token)) {
                 $this->exchangeShortTokenForLongLivedToken($token->access_token);
             }
             session()->flash('status', 'Successfully connected');
             return redirect()->route('refined.instagram.index')->with('status', 'Successfully connected');
+            /*
         } catch (\GuzzleHttp\Exception\ClientException $e) {
             $response = $e->getResponse();
             $errors = json_decode($response->getBody()->getContents());
@@ -173,7 +174,7 @@ class InstagramFeedRepository
                 ->route('refined.instagram.index')
                 ->with('status', 'Failed to connect to Instagram. '.($e->getMessage() ?? 'Please try again').'. Did you add the user as a test user?')
                 ->with('fail', 1);
-        }
+        }*/
     }
 
     private function exchangeShortTokenForLongLivedToken($shortToken)
@@ -183,6 +184,8 @@ class InstagramFeedRepository
             'client_secret='.$this->clientSecret,
             'access_token='.$shortToken
         ];
+
+        \Log::info(print_r($params, true));
 
         $response = $this->client->request('GET', 'access_token', [
             'query' => implode('&', $params)
@@ -195,15 +198,15 @@ class InstagramFeedRepository
     public function getAuthorizeLink()
     {
         $params = [
+            'enable_fb_login=0',
+            // 'force_authentication=1',
             'client_id='.$this->clientId,
             'redirect_uri='.$this->redirectUri,
             'scope='.$this->authScopes,
             'response_type=code'
         ];
 
-        $link = $this->authBasePath.'authorize?'.implode('&', $params);
-
-        return $link;
+        return $this->authBasePath.'authorize?'.implode('&', $params);
     }
 
     private function storeToken($body) {

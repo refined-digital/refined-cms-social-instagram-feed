@@ -2,6 +2,8 @@
 
 namespace RefinedDigital\Social\InstagramFeed\Module\Http\Controllers;
 
+use RefinedDigital\CMS\Modules\Core\Enums\PageContentType;
+use RefinedDigital\CMS\Modules\Pages\Models\Page;
 use RefinedDigital\CMS\Modules\Settings\Models\Setting;
 use RefinedDigital\Social\InstagramFeed\Module\Http\Repositories\InstagramFeedRepository;
 use RefinedDigital\Social\InstagramFeed\Module\Http\Requests\InstagramFeedRequest;
@@ -45,7 +47,7 @@ class SocialInstagramFeedController
             $value = [
                 'note' => '',
                 'content' => $request->get($field) ?? null,
-                'page_content_type_id' => 3,
+                'page_content_type_id' => $index === 2 ? PageContentType::PASSWORD->value : PageContentType::PLAIN->value,
             ];
 
             Setting::updateOrCreate([
