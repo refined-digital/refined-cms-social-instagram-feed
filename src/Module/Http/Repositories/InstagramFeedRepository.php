@@ -11,7 +11,7 @@ class InstagramFeedRepository
     protected $exchangeBasePath = 'https://api.instagram.com/oauth/';
     protected $client;
     protected $mediaFields = 'id,caption,media_url,permalink,timestamp,thumbnail_url';
-    protected $authScopes = 'instagram_business_basic'; //,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish';
+    protected $authScopes = 'instagram_business_basic';
     protected $tokenFile = 'instagram-token.json';
     protected $clientId;
     protected $clientSecret;
@@ -77,7 +77,7 @@ class InstagramFeedRepository
             return true;
 
         } catch(\Exception $error) {
-            // print_r($error->getMessage());
+            \Log::info($error->getMessage());
         }
 
         return false;
@@ -95,7 +95,7 @@ class InstagramFeedRepository
         $obj->success = true;
         $obj->data    = collect([]);
 
-        //try {
+        try {
             $response = $this->client->request('GET', 'me/media', [
                 'query' => implode('&', $params)
             ]);
@@ -103,11 +103,11 @@ class InstagramFeedRepository
             $body      = json_decode($response->getBody()->getContents());
             $obj->data = collect($body->data);
 
-        /*} catch(\Exception $error) {
+        } catch(\Exception $error) {
             if($error->getCode() == 400) {
                 $obj->success = false;
             }
-        }*/
+        }
 
         return $obj;
     }
@@ -127,7 +127,7 @@ class InstagramFeedRepository
             return json_decode($response->getBody()->getContents());
 
         } catch(\Exception $error) {
-            print_r($error->getMessage());
+            \Log::info($error->getMessage());
         }
 
         return null;
@@ -149,19 +149,17 @@ class InstagramFeedRepository
             'base_uri' => $this->exchangeBasePath
         ]);
 
-        // try {
+        try {
             $response = $client->request('POST', 'access_token', $data);
 
             $token = json_decode($response->getBody()->getContents());
-
-            \Log::info(print_r($token, true));
 
             if (isset($token->access_token)) {
                 $this->exchangeShortTokenForLongLivedToken($token->access_token);
             }
             session()->flash('status', 'Successfully connected');
             return redirect()->route('refined.instagram.index')->with('status', 'Successfully connected');
-            /*
+
         } catch (\GuzzleHttp\Exception\ClientException $e) {
             $response = $e->getResponse();
             $errors = json_decode($response->getBody()->getContents());
@@ -174,7 +172,7 @@ class InstagramFeedRepository
                 ->route('refined.instagram.index')
                 ->with('status', 'Failed to connect to Instagram. '.($e->getMessage() ?? 'Please try again').'. Did you add the user as a test user?')
                 ->with('fail', 1);
-        }*/
+        }
     }
 
     private function exchangeShortTokenForLongLivedToken($shortToken)
@@ -184,8 +182,6 @@ class InstagramFeedRepository
             'client_secret='.$this->clientSecret,
             'access_token='.$shortToken
         ];
-
-        \Log::info(print_r($params, true));
 
         $response = $this->client->request('GET', 'access_token', [
             'query' => implode('&', $params)
@@ -199,7 +195,7 @@ class InstagramFeedRepository
     {
         $params = [
             'enable_fb_login=0',
-            // 'force_authentication=1',
+            'force_authentication=1',
             'client_id='.$this->clientId,
             'redirect_uri='.$this->redirectUri,
             'scope='.$this->authScopes,

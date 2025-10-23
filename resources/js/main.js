@@ -74,7 +74,7 @@ window.instagramFeed = async (options) => {
     .then(results => {
       let html;
       if (results.data.success) {
-        if (results.data.data) {
+        if (results.data.data && results.data.data.length > 0) {
           const htmlItems = [];
           results.data.data.forEach(item => {
             let htmlItem = options.template;
