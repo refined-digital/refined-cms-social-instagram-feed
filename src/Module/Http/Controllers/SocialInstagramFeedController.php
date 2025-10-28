@@ -47,7 +47,7 @@ class SocialInstagramFeedController
             $value = [
                 'note' => '',
                 'content' => $request->get($field) ?? null,
-                'page_content_type_id' => $index === 2 ? PageContentType::PASSWORD->value : PageContentType::PLAIN->value,
+                'page_content_type_id' => $index === 2 ? 10 : 3,
             ];
 
             Setting::updateOrCreate([
