@@ -1,12 +1,6 @@
 <?php
 
-Route::namespace('Social\InstagramFeed\Module\Http\Controllers')
-    ->group(function() {
+use RefinedDigital\Social\InstagramFeed\Module\Http\Controllers\SocialInstagramFeedController;
 
-        Route::post('instagram-feed', [
-            'as' => 'social.instagram.feed.get-for-front',
-            'uses' => 'SocialInstagramFeedController@getForFront'
-        ]);
-
-    })
-;
+Route::post('instagram-feed', [SocialInstagramFeedController::class, 'getForFront'])
+    ->name('social.instagram.feed.get-for-front');

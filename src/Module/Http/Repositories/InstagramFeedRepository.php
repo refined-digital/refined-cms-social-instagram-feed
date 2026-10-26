@@ -2,223 +2,287 @@
 
 namespace RefinedDigital\Social\InstagramFeed\Module\Http\Repositories;
 
+use Carbon\Carbon;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ClientException;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class InstagramFeedRepository
 {
-    protected $apiBasePath = 'https://graph.instagram.com/';
-    protected $authBasePath = 'https://instagram.com/oauth/';
-    protected $exchangeBasePath = 'https://api.instagram.com/oauth/';
-    protected $client;
-    protected $mediaFields = 'id,caption,media_url,permalink,timestamp,thumbnail_url';
-    protected $authScopes = 'instagram_business_basic';
-    protected $tokenFile = 'instagram-token.json';
-    protected $clientId;
-    protected $clientSecret;
-    protected $token;
-    protected $redirectUri;
+    protected string $apiBasePath = 'https://graph.instagram.com/';
+
+    protected string $authBasePath = 'https://instagram.com/oauth/';
+
+    protected string $exchangeBasePath = 'https://api.instagram.com/oauth/';
+
+    protected Client $client;
+
+    protected string $mediaFields = 'id,caption,media_url,permalink,timestamp,thumbnail_url';
+
+    protected string $authScopes = 'instagram_business_basic';
+
+    protected string $tokenFile = 'instagram-token.json';
+
+    protected ?string $clientId = null;
+
+    protected ?string $clientSecret = null;
+
+    protected ?string $token = null;
+
+    protected ?string $redirectUri = null;
+
+    protected bool $refreshChecked = false;
 
     public function __construct()
     {
         $settings = settings()->get('instagram');
 
-        $this->clientId     = $settings->client_id->value ?? null;
+        $this->clientId = $settings->client_id->value ?? null;
         $this->clientSecret = $settings->client_secret->value ?? null;
-        $this->redirectUri  = $settings->redirect_url->value ?? request()->url();
-        $this->token        = null;
+        $this->redirectUri = $settings->redirect_url->value ?? request()->url();
 
         $this->client = new Client([
-            'base_uri' => $this->apiBasePath
+            'base_uri' => $this->apiBasePath,
+            'timeout' => 10,
         ]);
 
-        if (\Storage::disk('local')->exists($this->tokenFile)) {
-            $tokenOnFile = json_decode(\Storage::disk('local')->get($this->tokenFile));
-            if (isset($tokenOnFile->access_token)) {
-                $this->token = $tokenOnFile->access_token;
-            }
-        }
-
-        // check if we need to refresh the token
-        if ($this->token) {
-            $this->refreshToken();
+        $tokenOnFile = $this->readToken();
+        if (isset($tokenOnFile->access_token)) {
+            $this->token = $tokenOnFile->access_token;
         }
     }
 
-    public function refreshToken()
+    /**
+     * Whether a long lived token has been stored.
+     */
+    public function isConnected(): bool
     {
-        $tokenOnFile = json_decode(\Storage::disk('local')->get($this->tokenFile));
-        $refresh = false;
+        return (bool) $this->token;
+    }
 
-        if (isset($tokenOnFile->expires)) {
-            $now = \Carbon\Carbon::now();
-            $expires = \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $tokenOnFile->expires)->subDays(30);
-            if ($now->gt($expires)) {
-                $refresh = true;
-            }
-        }
+    /**
+     * Refreshes the long lived token once it is within 30 days of expiring.
+     */
+    public function refreshToken(): bool
+    {
+        $tokenOnFile = $this->readToken();
 
-        if (!$refresh) {
+        if (! $this->token || ! isset($tokenOnFile->expires)) {
             return true;
         }
 
-        $params = [
-            'grant_type=ig_refresh_token',
-            'access_token='.$this->token
-        ];
+        $expires = Carbon::createFromFormat('Y-m-d H:i:s', $tokenOnFile->expires)->subDays(30);
+        if (Carbon::now()->lte($expires)) {
+            return true;
+        }
 
         try {
             $response = $this->client->request('GET', 'refresh_access_token', [
-                'query' => implode('&', $params)
+                'query' => [
+                    'grant_type' => 'ig_refresh_token',
+                    'access_token' => $this->token,
+                ],
             ]);
 
-            $body = $response->getBody()->getContents();
-            $this->storeToken($body);
+            $this->storeToken($response->getBody()->getContents());
 
             return true;
-
-        } catch(\Exception $error) {
-            \Log::info($error->getMessage());
+        } catch (\Throwable $error) {
+            Log::info('Instagram token refresh failed: '.$this->redact($error->getMessage()));
         }
 
         return false;
     }
 
-    public function getUserMedia($limit = 20)
+    /**
+     * The latest media for the connected account, as {success, data[, message]}.
+     */
+    public function getUserMedia(int $limit = 20): \stdClass
     {
-        $params = [
-            'access_token='.$this->token,
-            'fields='.$this->mediaFields,
-            'limit='.$limit
-        ];
+        $obj = new \stdClass;
+        $obj->success = false;
+        $obj->data = collect([]);
 
-        $obj          = new \stdClass();
-        $obj->success = true;
-        $obj->data    = collect([]);
+        if (! $this->token) {
+            $obj->message = 'Instagram is not connected';
+
+            return $obj;
+        }
+
+        $this->refreshOnce();
 
         try {
             $response = $this->client->request('GET', 'me/media', [
-                'query' => implode('&', $params)
+                'query' => [
+                    'access_token' => $this->token,
+                    'fields' => $this->mediaFields,
+                    'limit' => $limit,
+                ],
             ]);
 
-            $body      = json_decode($response->getBody()->getContents());
-            $obj->data = collect($body->data);
-
-        } catch(\Exception $error) {
-            if($error->getCode() == 400) {
-                $obj->success = false;
-            }
+            $body = json_decode($response->getBody()->getContents());
+            $obj->success = true;
+            $obj->data = collect($body->data ?? []);
+        } catch (\Throwable $error) {
+            Log::info('Instagram feed failed: '.$this->redact($error->getMessage()));
+            $obj->message = 'Unable to load the Instagram feed';
         }
 
         return $obj;
     }
 
-    public function getUserImage($imageId)
+    /**
+     * A single media item, or null when it can not be loaded.
+     */
+    public function getUserImage(string $imageId): ?object
     {
-        $params = [
-            'access_token='.$this->token,
-            'fields='.$this->mediaFields,
-        ];
+        if (! $this->token) {
+            return null;
+        }
+
+        $this->refreshOnce();
 
         try {
             $response = $this->client->request('GET', $imageId, [
-                'query' => implode('&', $params)
+                'query' => [
+                    'access_token' => $this->token,
+                    'fields' => $this->mediaFields,
+                ],
             ]);
 
             return json_decode($response->getBody()->getContents());
-
-        } catch(\Exception $error) {
-            \Log::info($error->getMessage());
+        } catch (\Throwable $error) {
+            Log::info('Instagram media failed: '.$this->redact($error->getMessage()));
         }
 
         return null;
     }
 
-    public function exchangeCodeForToken($code)
+    /**
+     * Swaps the oauth code for a long lived token and returns to the settings page.
+     */
+    public function exchangeCodeForToken(string $code): RedirectResponse
     {
-        $data = [
-            'form_params' => [
-                'client_id'     => $this->clientId,
-                'client_secret' => $this->clientSecret,
-                'code'          => $code,
-                'grant_type'    => 'authorization_code',
-                'redirect_uri'  => $this->redirectUri
-            ]
-        ];
-
         $client = new Client([
-            'base_uri' => $this->exchangeBasePath
+            'base_uri' => $this->exchangeBasePath,
+            'timeout' => 10,
         ]);
 
         try {
-            $response = $client->request('POST', 'access_token', $data);
+            $response = $client->request('POST', 'access_token', [
+                'form_params' => [
+                    'client_id' => $this->clientId,
+                    'client_secret' => $this->clientSecret,
+                    'code' => $code,
+                    'grant_type' => 'authorization_code',
+                    'redirect_uri' => $this->redirectUri,
+                ],
+            ]);
 
             $token = json_decode($response->getBody()->getContents());
 
             if (isset($token->access_token)) {
                 $this->exchangeShortTokenForLongLivedToken($token->access_token);
             }
-            session()->flash('status', 'Successfully connected');
-            return redirect()->route('refined.instagram.index')->with('status', 'Successfully connected');
 
-        } catch (\GuzzleHttp\Exception\ClientException $e) {
-            $response = $e->getResponse();
-            $errors = json_decode($response->getBody()->getContents());
-            return redirect()
-                ->route('refined.instagram.index')
-                ->with('status', 'Failed to connect to Instagram. '.($errors->error_message ?? 'Please try again').'. Did you add the user as a test user?')
-                ->with('fail', 1);
-        } catch (\Exception $e) {
-            return redirect()
-                ->route('refined.instagram.index')
-                ->with('status', 'Failed to connect to Instagram. '.($e->getMessage() ?? 'Please try again').'. Did you add the user as a test user?')
-                ->with('fail', 1);
+            return redirect()->route('refined.instagram.index')->with('status', 'Successfully connected');
+        } catch (ClientException $e) {
+            $errors = json_decode($e->getResponse()->getBody()->getContents());
+
+            return $this->connectFailed($errors->error_message ?? null);
+        } catch (\Throwable $e) {
+            return $this->connectFailed($e->getMessage());
         }
     }
 
-    private function exchangeShortTokenForLongLivedToken($shortToken)
+    public function getAuthorizeLink(): string
     {
-        $params = [
-            'grant_type=ig_exchange_token',
-            'client_secret='.$this->clientSecret,
-            'access_token='.$shortToken
-        ];
+        return $this->authBasePath.'authorize?'.http_build_query([
+            'enable_fb_login' => 0,
+            'force_authentication' => 1,
+            'client_id' => $this->clientId,
+            'redirect_uri' => $this->redirectUri,
+            'scope' => $this->authScopes,
+            'response_type' => 'code',
+        ], '', '&', PHP_QUERY_RFC3986);
+    }
 
+    public function getTokenFile(): string
+    {
+        return Storage::disk('local')->path($this->tokenFile);
+    }
+
+    private function refreshOnce(): void
+    {
+        if (! $this->refreshChecked) {
+            $this->refreshChecked = true;
+            $this->refreshToken();
+        }
+    }
+
+    private function exchangeShortTokenForLongLivedToken(string $shortToken): void
+    {
         $response = $this->client->request('GET', 'access_token', [
-            'query' => implode('&', $params)
+            'query' => [
+                'grant_type' => 'ig_exchange_token',
+                'client_secret' => $this->clientSecret,
+                'access_token' => $shortToken,
+            ],
         ]);
 
-        $body = $response->getBody()->getContents();
-        $this->storeToken($body);
+        $this->storeToken($response->getBody()->getContents());
     }
 
-    public function getAuthorizeLink()
+    private function storeToken(string $body): void
     {
-        $params = [
-            'enable_fb_login=0',
-            'force_authentication=1',
-            'client_id='.$this->clientId,
-            'redirect_uri='.$this->redirectUri,
-            'scope='.$this->authScopes,
-            'response_type=code'
-        ];
-
-        return $this->authBasePath.'authorize?'.implode('&', $params);
-    }
-
-    private function storeToken($body) {
         $token = json_decode($body);
-        $storeToken = json_decode($body);
 
-        $storeToken->expires = \Carbon\Carbon::now()->addSeconds($storeToken->expires_in)->format('Y-m-d H:i:s');
-        \Storage::disk('local')->put($this->tokenFile, json_encode($storeToken));
+        if (! isset($token->access_token)) {
+            Log::info('Instagram returned no access token: '.$this->redact($body));
 
-        if (isset($token->access_token)) {
-            $this->token = $token->access_token;
+            return;
         }
+
+        $token->expires = Carbon::now()->addSeconds((int) ($token->expires_in ?? 0))->format('Y-m-d H:i:s');
+        Storage::disk('local')->put($this->tokenFile, json_encode($token));
+
+        $this->token = $token->access_token;
     }
 
-    public function getTokenFile()
+    private function connectFailed(?string $message): RedirectResponse
     {
-        return storage_path('app/'.$this->tokenFile);
+        return redirect()
+            ->route('refined.instagram.index')
+            ->with('status', 'Failed to connect to Instagram. '.($message ?: 'Please try again').'. Did you add the user as a test user?')
+            ->with('fail', 1);
+    }
+
+    /**
+     * Guzzle puts the request url, and so the token and secret, in its messages.
+     */
+    private function redact(string $message): string
+    {
+        return preg_replace('/(access_token|client_secret)=[^&\s`"]+/', '$1=***', $message);
+    }
+
+    private function readToken(): ?object
+    {
+        $disk = Storage::disk('local');
+
+        // laravel 11+ moved the local disk to storage/app/private, carry a token from the old location across
+        $legacyFile = storage_path('app/'.$this->tokenFile);
+        if (! $disk->exists($this->tokenFile) && is_file($legacyFile) && $legacyFile !== $disk->path($this->tokenFile)) {
+            $disk->put($this->tokenFile, file_get_contents($legacyFile));
+        }
+
+        if (! $disk->exists($this->tokenFile)) {
+            return null;
+        }
+
+        $token = json_decode($disk->get($this->tokenFile));
+
+        return is_object($token) ? $token : null;
     }
 }

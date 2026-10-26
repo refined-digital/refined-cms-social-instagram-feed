@@ -4,13 +4,12 @@ namespace RefinedDigital\Social\InstagramFeed\Module\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class InstagramFeedRequest extends FormRequest {
+class InstagramFeedRequest extends FormRequest
+{
     /**
-     * Determine if the service is authorized to make this request.
-     *
-     * @return bool
+     * Determine if the user is authorized to make this request.
      */
-    public function authorize()
+    public function authorize(): bool
     {
         return true;
     }
@@ -18,18 +17,14 @@ class InstagramFeedRequest extends FormRequest {
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array
+     * @return array<string, array<int, string>>
      */
-    public function rules()
+    public function rules(): array
     {
-
-        $args = [
-            'client_id'                => ['required' => 'required'],
-            'client_secret'            => ['required' => 'required'],
-            'redirect_url'             => ['required' => 'required'],
+        return [
+            'client_id' => ['required', 'string', 'max:255'],
+            'client_secret' => ['required', 'string', 'max:255'],
+            'redirect_url' => ['required', 'url', 'max:255'],
         ];
-
-        // return the results to set for validation
-        return $args;
     }
 }

@@ -3,8 +3,6 @@
 namespace RefinedDigital\Social\InstagramFeed\Commands;
 
 use Illuminate\Console\Command;
-use Validator;
-use Artisan;
 
 class Install extends Command
 {
@@ -23,51 +21,49 @@ class Install extends Command
     protected $description = 'Installs social instagram';
 
     /**
-     * Create a new command instance.
-     *
-     * @return void
-     */
-    public function __construct()
-    {
-        parent::__construct();
-    }
-
-    /**
      * Execute the console command.
-     *
-     * @return mixed
      */
-    public function handle()
+    public function handle(): int
     {
         $this->createSymLink();
         $this->info('Social Instagram Feed has been successfully installed');
+        $this->line('Vite sites can import vendor/refineddigital/cms-social-instagram-feed/resources/js/instagram-feed.js instead of loading the public script, see the README.');
+
+        return self::SUCCESS;
     }
 
-    protected function createSymLink()
+    /**
+     * Links public/vendor/refined/instagram-feed to the package's prebuilt assets, for sites that load the script tag.
+     */
+    protected function createSymLink(): void
     {
         $this->output->writeln('<info>Creating Symlink</info>');
+
+        $dir = public_path('vendor/refined');
+        $link = $dir.'/instagram-feed';
+        $target = '../../../vendor/refineddigital/cms-social-instagram-feed/assets/';
+
+        if (is_link($link) || file_exists($link)) {
+            $this->output->writeln(' <comment>'.$link.' already exists, skipping</comment>');
+
+            return;
+        }
+
         try {
-            $link = public_path('vendor/');
-            $target = '../../../vendor/refineddigital/cms-social-instagram-feed/assets/';
+            if (! is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
 
-            // create the directories
-            if (!is_dir($link)) {
-                mkdir($link);
-            }
-            $link .= 'refined/';
-            if (!is_dir($link)) {
-                mkdir($link);
-            }
-            $link .= 'instagram-feed';
             if (! windows_os()) {
-                return symlink($target, $link);
+                symlink($target, $link);
+
+                return;
             }
 
-            $mode = is_dir($target) ? 'J' : 'H';
-
-            exec("mklink /{$mode} \"{$link}\" \"{$target}\"");
-        } catch(\Exception $e) {
-            $this->output->writeln('<error>Failed to install symlink</error>');
+            $absoluteTarget = base_path('vendor/refineddigital/cms-social-instagram-feed/assets');
+            exec("mklink /J \"{$link}\" \"{$absoluteTarget}\"");
+        } catch (\Throwable $e) {
+            $this->output->writeln('<error>Failed to install symlink: '.$e->getMessage().'</error>');
         }
     }
 }

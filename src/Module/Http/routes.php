@@ -1,8 +1,6 @@
 <?php
 
-Route::namespace('Social\InstagramFeed\Module\Http\Controllers')
-    ->group(function() {
-        Route::patch('instagram', 'SocialInstagramFeedController@update')->name('instagram.update');
-        Route::get('instagram', 'SocialInstagramFeedController@index')->name('instagram.index');
-    })
-;
+use RefinedDigital\Social\InstagramFeed\Module\Http\Controllers\SocialInstagramFeedController;
+
+Route::get('instagram', [SocialInstagramFeedController::class, 'index'])->name('instagram.index');
+Route::patch('instagram', [SocialInstagramFeedController::class, 'update'])->name('instagram.update');
